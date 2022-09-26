@@ -15,6 +15,26 @@
     # along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #endregion
 
+param(
+    [parameter(Position=0,Mandatory=$false)][string]$auth_file
+)
+
+$systemuri = ""
+#$authload = "$PSScriptRoot\z_auth.ps1"
+$authload = Get-ChildItem -Path $PSScriptRoot\z_auth.ps1 -ErrorAction SilentlyContinue
+
+function seturi{
+    param(
+      [string]$systemuri
+    )
+    $script:systemuri = $systemUri
+  }
+  
+
+if(-NOT [string]::IsNullOrEmpty($auth_file)){
+    .  $authload $auth_file
+}
+
 #region New-GrouperHeader
     function New-GrouperHeader
     {
@@ -46,95 +66,136 @@
     }
 #endregion
 
-#region Get-GrouperGroup
-    function Get-GrouperGroup
-    {
-        <#
-            .SYNOPSIS
-                Get Grouper Group(s)
-
-            .DESCRIPTION
-                Get Grouper Group(s)
-
-            .PARAMETER uri
-                Full path to Server plus path to API
-                Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
-
-            .PARAMETER header
-                Use New-GrouperHeader to get this
-
-            .PARAMETER contentType
-                Set Content Type, currently 'text/x-json;charset=UTF-8'
-
-            .PARAMETER groupName
-                Use this if you know the exact name
-
-            .PARAMETER stemName
-                Use this to get a list of groups in a specific stem.  Use Get-GrouperStem to find stem
-
-            .PARAMETER subjectId
-                Set this to a username to search as that user if you have access to
-
-            .NOTES
-                Author: Travis Sobeck
-                LASTEDIT: 7/30/2018
-
-            .EXAMPLE
-        #>
-        [CmdletBinding()]
-        param
-        (
-            [Parameter(Mandatory)]
-            [string]$uri,
-
-            [Parameter(Mandatory)]
-            [System.Collections.Hashtable]$header,
-
-            [string]$contentType = 'text/x-json;charset=UTF-8',
-
-            [Parameter(Mandatory,ParameterSetName='groupName')]
-            [string]$groupName,
-
-            [Parameter(ParameterSetName='groupName')]
-            [switch]$search,
-
-            [Parameter(Mandatory,ParameterSetName='stemName')]
-            [string]$stemName,
-
-            [string]$subjectId
-        )
-
-        Begin
-        {
-            $uri = "$uri/groups"
-            $body = @{}
-        }
-
-        Process
-        {
-            if ($groupName)
-            {
-                if ($search){$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_APPROXIMATE'}}}
-                else{$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'}}}
-            }
-            else
-            {
-                $body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{stemName = $stemName;queryFilterType = 'FIND_BY_STEM_NAME'}}
-            }
-            if ($subjectId)
-            {
-
-                $body['WsRestFindGroupsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
-            }
-            $body = $body | ConvertTo-Json -Depth 5
-            Write-Verbose -Message $body
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
-            return ($response.Content | ConvertFrom-Json).WsFindGroupsResults.groupResults
-
-        }
-
-        End{}
+function rtnheader{
+    param([Hashtable]$header)
+    if([string]::IsNullOrEmpty($header)){
+        return New-GrouperHeader -psCreds $auth.pscred
     }
+    else{
+        return $header
+    }
+}
+
+#region Get-GrouperGroup
+function Get-GrouperGroup
+{
+    <#
+        .SYNOPSIS
+            Get Grouper Group(s)
+
+        .DESCRIPTION
+            Get Grouper Group(s)
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            Use this if you know the exact name
+
+        .PARAMETER stemName
+            Use this to get a list of groups in a specific stem.  Use Get-GrouperStem to find stem
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .NOTES
+            Author: Travis Sobeck
+            LASTEDIT: 7/30/2018
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        [Parameter(Mandatory,ParameterSetName='groupName')]
+        [string]$groupName,
+
+        [Parameter(ParameterSetName='groupName')]
+        [switch]$search,
+
+        [Parameter(Mandatory,ParameterSetName='stemName')]
+        [string]$stemName,
+
+        [string]$subjectId,
+        [switch]$rawoutput
+    )
+
+    Begin
+    {
+        
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+        $uri = "$uri/groups"
+        $body = @{}
+    }
+
+    Process
+    {
+        #write-host $uri
+        if ($groupName)
+        {
+            if ($search){
+                $body['WsRestFindGroupsRequest'] = @{
+                    wsQueryFilter = @{
+                        groupName = $groupName;
+                        queryFilterType = 'FIND_BY_GROUP_NAME_APPROXIMATE'
+                    }
+                }
+            }
+            else{
+                $body['WsRestFindGroupsRequest'] = @{
+                    wsQueryFilter = @{
+                            groupName = $groupName;
+                            queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'
+                        };
+                        
+                    }
+                }
+
+            }
+        else
+        {
+            $body['WsRestFindGroupsRequest'] = @{
+                wsQueryFilter = @{
+                    stemName = $stemName;
+                    queryFilterType = 'FIND_BY_STEM_NAME'
+                }
+            }
+        }
+        if ($subjectId)
+        {
+
+            $body['WsRestFindGroupsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
+        }
+        $body = $body | ConvertTo-Json -Depth 5
+        Write-Verbose -Message $body
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        if($rawoutput){
+            return $response
+        }
+        else{
+            return ($response.Content | ConvertFrom-Json).WsFindGroupsResults.groupResults
+        }
+    }
+
+    End{}
+}
 #endregion
 
 #region Get-GrouperGroupMembers
@@ -170,10 +231,8 @@
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -188,6 +247,9 @@
 
         Process
         {
+            if([string]::IsNullOrEmpty($uri)){
+                $uri = $systemuri
+            }
             $uri = "$uri/groups"
             $body = @{
                 WsRestGetMembersRequest = @{
@@ -195,6 +257,8 @@
                     wsGroupLookups = @(@{groupName = $groupName})
                 }
             }
+                     
+
             if ($subjectId)
             {
 
@@ -203,8 +267,13 @@
             }
             $body = $body | ConvertTo-Json -Depth 5
             Write-Verbose -Message $body
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
-            return ($response.Content | ConvertFrom-Json).WsGetMembersResults.results.wsSubjects
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            write-verbose (($response | convertfrom-json).WsGetMembersResults.results.wsSubjects | convertto-json)
+            $rtnvalue = ($response.Content | ConvertFrom-Json).WsGetMembersResults.results.wsSubjects
+            if($null -eq $rtnvalue){
+                return ,@()
+            }
+            return $rtnvalue
         }
 
         End{}
@@ -254,10 +323,8 @@ function Get-GrouperGroupsForMember
     [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory)]
         [string]$uri,
 
-        [Parameter(Mandatory)]
         [System.Collections.Hashtable]$header,
 
         [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -283,6 +350,10 @@ function Get-GrouperGroupsForMember
 
     Process
     {
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
         $uri = "$uri/memberships"
         $body = @{
             WsRestGetMembershipsRequest = @{
@@ -308,7 +379,7 @@ function Get-GrouperGroupsForMember
         }
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
-        $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         return ($response.Content | ConvertFrom-Json).WsGetMembershipsResults.wsGroups
     }
 
@@ -354,10 +425,8 @@ function Get-GrouperPrivileges
     [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory)]
         [string]$uri,
 
-        [Parameter(Mandatory)]
         [System.Collections.Hashtable]$header,
 
         [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -376,6 +445,10 @@ function Get-GrouperPrivileges
     Begin{}
     Process
     {
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
         $uri = "$uri/grouperPrivileges"
         $body = @{
             WsRestGetGrouperPrivilegesLiteRequest = @{}
@@ -403,7 +476,7 @@ function Get-GrouperPrivileges
 
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose $body
-        $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         Write-Verbose ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult
         return ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult.privilegeResults
     }
@@ -450,10 +523,10 @@ function Get-GrouperPrivileges
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -470,7 +543,11 @@ function Get-GrouperPrivileges
 
         Process
         {
-            $uri = "$uri/stems"
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/stems"
             $body = @{
                     WsRestFindStemsRequest = @{
                         wsStemQueryFilter = @{stemName = $stemName}
@@ -485,7 +562,7 @@ function Get-GrouperPrivileges
                 $body['WsRestFindStemsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
             }
             $body = $body | ConvertTo-Json -Depth 5
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
             {
                 ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -537,10 +614,8 @@ function Get-GrouperPrivileges
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -557,7 +632,11 @@ function Get-GrouperPrivileges
 
         Process
         {
-            $uri = "$uri/stems"
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/stems"
             $body = @{
                     WsRestFindStemsRequest = @{
                         wsStemQueryFilter = @{parentStemName = $parentStemName;stemQueryFilterType = 'FIND_BY_PARENT_STEM_NAME'}
@@ -573,7 +652,7 @@ function Get-GrouperPrivileges
             }
             $body = $body | ConvertTo-Json -Depth 5
             Write-Verbose -Message $body
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
             {
                 ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -622,11 +701,9 @@ function Get-GrouperStemByUUID
     [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory)]
-        [string]$uri,
+                [string]$uri,
 
-        [Parameter(Mandatory)]
-        [System.Collections.Hashtable]$header,
+                [System.Collections.Hashtable]$header,
 
         [string]$contentType = 'text/x-json;charset=UTF-8',
 
@@ -640,6 +717,10 @@ function Get-GrouperStemByUUID
 
     Process
     {
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
         $uri = "$uri/stems"
         $body = @{
                 WsRestFindStemsRequest = @{
@@ -653,7 +734,7 @@ function Get-GrouperStemByUUID
             $body['WsRestFindStemsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
         }
         $body = $body | ConvertTo-Json -Depth 5
-        $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
         {
             ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -666,6 +747,86 @@ function Get-GrouperStemByUUID
     End{}
 }
 #endregion
+
+#region Get-GrouperGroupsByStem
+function Get-GrouperGroupsByStem
+{
+    <#
+        .SYNOPSIS
+            Create new Group in Grouper
+
+        .DESCRIPTION
+            Create new Group in Grouper
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER stem
+            This represents the identifier for the group, it should look like 'stemname:group'
+            Example: stem1:substem:supergroup
+
+        .PARAMETER description
+            The description represents the the Name in the form users in the UI will see the group
+
+        .NOTES
+            Author: Travis Sobeck
+            LASTEDIT: 7/30/2018
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+                [string]$uri,
+
+                [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        [Parameter(Mandatory)]
+        [string]$stem
+
+        )
+
+    Begin{
+        $results =@()
+    }
+
+    Process
+    {
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/groups"
+        
+        $body = @{ WsRestFindGroupsRequest = @{
+                wsQueryFilter = @{queryFilterType = "FIND_BY_STEM_NAME";stemName=$stem;}
+                }} | ConvertTo-Json -Depth 5
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        if (($response.Content | ConvertFrom-Json).WsFindGroupsResults.groupResults.Count -gt 0)
+        {
+            $results = ($response.Content | ConvertFrom-Json).WsFindGroupsResults.groupResults
+        }
+        else {
+            Write-Verbose "NO results found"
+        }
+        #return $null
+    }
+
+    End{
+         return $results}
+}
+#endregion
+
+#endregon
 
 #region New-GrouperGroup
     function New-GrouperGroup
@@ -703,33 +864,141 @@ function Get-GrouperStemByUUID
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [string]$groupName,
 
-            [Parameter(Mandatory)]
-            [string]$description
+            [string]$description="",
+            
+            #[Parameter(Mandatory)]
+            [string]$displayExtension,
+            [string]$bodyin,
+            [PSCustomObject[]]$addobj,
+            [switch]$createParentStemsIfNotExist=$false
+
+
+            
+            
+
         )
 
         Begin{}
 
         Process
         {
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+            
+            }
             $uri = "$uri/groups"
-            $body = @{
-                WsRestGroupSaveRequest = @{
-                    wsGroupToSaves = @(@{wsGroup = @{description = $description;displayExtension = $description;extension = $description;name = $groupName};wsGroupLookup = @{groupName = $groupName}})
+            if($bodyin){
+                $body = $bodyin 
+            }
+            else{
+            if($addobj.count -gt 0){
+
+            }
+            else{
+                $addobj = @([PSCustomObject]@{
+                    name= $groupName
+                    #extension=;
+                    displayExtension=$displayExtension;
+                    description=$description;
+                    <#details=@{
+                        attributeNames=@('csom_ad_test');
+                        attributeValues=@(123)
+                    }#>
+
+                    })
+            }
+
+            if($createParentStemsIfNotExist){
+                $createParentStemsIfNotExist_text = "T"
+
+            }
+            else{
+                $createParentStemsIfNotExist_text = "F"
+            }
+
+            $wsgrouptosaves = @()
+            #csom_ad_test
+            foreach ($obj in $addobj){
+                $wsGroup = @{
+                    
+                    wsGroupLookup=@{
+                        groupName=$obj.name
+                    }
+                    wsGroup=$obj;
+                    createParentStemsIfNotExist=$createParentStemsIfNotExist_text
                 }
-            } | ConvertTo-Json -Depth 5
-            ($response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType)
-            return ($response.Content | ConvertFrom-Json).WsGroupSaveResults.results.wsGroup
+                $wsgrouptosaves += $wsgroup
+                #return $obj
+            }
+            #return $wsgrouptosaves
+            <#
+             {
+        "wsGroup":{
+          "extension":"whateverGroupLeft",
+          "description":"whateverGroupLeftDesc",
+          "displayExtension":"whateverGroupLeftDispExt",
+          "name":"aStem:whateverGroupLeft"
+        },
+        "wsGroupLookup":{
+          "groupName":"aStem:whateverGroupLeft"
+        }
+        
+      }
+      #>
+            #return $wsgrouptosaves
+        
+            
+            $body = @{
+                WsRestGroupSaveRequest = 
+                    #wsGroupToSaves = @(@{wsGroup = @{description = $description;displayExtension = $displayExtension;name = $groupName};wsGroupLookup = @{groupName = $groupName}})
+                    @{
+                        wsGroupToSaves = $wsgrouptosaves;
+                        
+                    }
+            } | ConvertTo-Json -Depth 10
+        }
+
+            #write-verbose $body
+            #return $body
+            try{
+             #   write-host "Invoke-WebRequest -Uri $uri -Headers $((rtnheader $header)) -Method Post -Body $body -UseBasicParsing -ContentType $contentType"
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            }
+            catch {
+                write-host "error"
+                #return $psitem
+                if($_.ErrorDetails.Message) {
+
+                    #Write-Host ($_.ErrorDetails.Message | convertfrom-json -Depth 100)
+                    $ngresp =  $_.ErrorDetails.Message |convertfrom-json
+                    if($ngresp.WsGroupSaveResults.results.resultMetadata.resultMessage.contains("Caused by: edu.internet2.middleware.grouper.exception.StemNotFoundException:")){
+                        write-host "bad stem path"
+                        Write-Host $psitem     
+                    }
+                    else {
+                        write-host $ngresp.WsGroupSaveResults.results.resultMetadata.resultMessage
+                        write-host $psitem
+                    }
+                } else {
+                    Write-Host ($psitem | convertto-json)
+                }
+            }
+            #return $response
+            if($null -eq $response.Content){
+                return $response
+            }
+            else{
+                return ($response.Content | ConvertFrom-Json).WsGroupSaveResults.results.wsGroup
+            }
         }
 
         End{}
@@ -778,10 +1047,10 @@ function Get-GrouperStemByUUID
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
                 [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -790,36 +1059,191 @@ function Get-GrouperStemByUUID
             [string]$groupName,
 
             [Parameter(Mandatory,ParameterSetName='subjectId')]
-            [string]$subjectId,
+            [string[]]$subjectId,
 
             [Parameter(Mandatory,ParameterSetName='subjectIdentifier')]
-            [string]$subjectIdentifier,
+            [string[]]$subjectIdentifier,
 
-            [string]$subjectSourceId
+            [string]$subjectSourceId,
+	    [switch]$replaceallexisting=$false
         )
 
         Begin{}
 
         Process
         {
-            $uri = "$uri/groups"
-            if ($subjectIdentifier){$subjectLookups = @(@{subjectIdentifier = $subjectIdentifier})}
-            else{$subjectLookups = @(@{subjectId = $subjectId})}
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/groups"
+            if ($subjectIdentifier){
+		$subjectlookups = @()
+		foreach ($i in $subjectidentifier){
+			$subjectLookups += @{subjectIdentifier = $i}
+		}
+                
+            
+            }
+            
+	    else{
+		$subjectlookups = @()
+		foreach ($i in $subjectid){
+			$subjectlookups += @{subjectId = $i}
+		}
+		#$subjectLookups = @(@{subjectId = $subjectId})
+	    }
             if ($subjectSourceId){$subjectLookups[0]['subjectSourceId'] = $subjectSourceId}
+            #write-host $subjectlookups
+            #write-host $groupname
+	    if($replaceallexisting){
+	    	$replaceallexistingtxt = "T"
+            }
+            else{
+	    	$replaceallexistingtxt = "F"
+            }
             $body = @{
                 WsRestAddMemberRequest = @{
+                    replaceAllExisting = "$replaceallexistingtxt"
                     subjectLookups = $subjectLookups
                     wsGroupLookup = @{groupName = $groupName}
                 }
             } | ConvertTo-Json -Depth 5
             Write-Verbose $body
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
-            return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            
+	    return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
         }
 
         End{}
     }
 #endregion
+
+#region New-GrouperGroupMember
+function Remove-GrouperGroupMember
+{
+    <#
+        .SYNOPSIS
+            Add a user to a Group
+
+        .DESCRIPTION
+            Add a user to a Group
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            This represents the identifier for the group, it should look like 'stemname:group'
+            Example: stem1:substem:supergroup
+
+        .PARAMETER subjectId
+            Each implemetation of Grouper will determine what this value represents
+
+        .PARAMETER subjectIdentifier
+            Alternative way to identify user to be added
+
+        .PARAMETER subjectSourceId
+            Source location of subjectId, ie ldap
+
+        .NOTES
+            Author: Travis Sobeck
+            LASTEDIT: 7/30/2018
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+            [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        [Parameter(Mandatory)]
+        [string]$groupName,
+
+        [Parameter(Mandatory,ParameterSetName='subjectId')]
+        [string[]]$subjectId,
+
+        [Parameter(Mandatory,ParameterSetName='subjectIdentifier')]
+        [string[]]$subjectIdentifier,
+
+        [string]$subjectSourceId,
+    [switch]$replaceallexisting=$false
+    )
+
+    Begin{}
+
+    Process
+    {
+        if([string]::IsNullOrEmpty($uri)){
+        $uri = $systemuri
+    }
+   
+    $uri = "$uri/groups"
+        if ($subjectIdentifier){
+    $subjectlookups = @()
+    foreach ($i in $subjectidentifier){
+        $subjectLookups += @{subjectIdentifier = $i}
+    }
+            
+        
+        }
+        
+    else{
+    $subjectlookups = @()
+    foreach ($i in $subjectid){
+        $subjectlookups += @{subjectId = $i}
+    }
+    #$subjectLookups = @(@{subjectId = $subjectId})
+    }
+        if ($subjectSourceId){$subjectLookups[0]['subjectSourceId'] = $subjectSourceId}
+        #write-host $subjectlookups
+        #write-host $groupname
+        <#
+        {
+  "WsRestDeleteMemberRequest":{
+    "subjectLookups":[
+        {
+        "subjectIdentifier":"000000000"
+        },
+        {
+        "subjectIdentifier":"name"
+        }
+    ],
+    "wsGroupLookup":{
+      "groupName":"subfolder1:examples:group1"
+    }
+  }
+}
+        #>
+
+        $body = @{
+            WsRestDeleteMemberRequest = @{
+                subjectLookups = $subjectLookups
+                wsGroupLookup = @{groupName = $groupName}
+            }
+        } | ConvertTo-Json -Depth 5
+        Write-Verbose $body
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        
+    return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
+    }
+
+    End{}
+}
+#endregion
+
 
 #region Set-GrouperPrivileges/New-GrouperPrivileges
 function Set-GrouperPrivileges
@@ -869,11 +1293,9 @@ function Set-GrouperPrivileges
     [Alias('New-GrouperPrivileges')]
     param
     (
-        [Parameter(Mandatory)]
-        [string]$uri,
+                [string]$uri,
 
-        [Parameter(Mandatory)]
-        [System.Collections.Hashtable]$header,
+                [System.Collections.Hashtable]$header,
 
         [string]$contentType = 'text/x-json;charset=UTF-8',
 
@@ -900,6 +1322,10 @@ function Set-GrouperPrivileges
     Begin{}
     Process
     {
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
         $uri = "$uri/grouperPrivileges"
         $body = @{
             WsRestAssignGrouperPrivilegesLiteRequest = @{
@@ -934,7 +1360,7 @@ function Set-GrouperPrivileges
 
         $body = $body | ConvertTo-Json -Depth 5
         #Write-Debug $body
-        $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         return ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult.privilegeResults
         if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
         {
@@ -984,32 +1410,44 @@ function Set-GrouperPrivileges
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
+     #       [Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
+      #      [Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
 
-            [Parameter(Mandatory)]
+             [Parameter(Mandatory)]
             [string]$stemName,
 
+            [string]$description="",
             [Parameter(Mandatory)]
-            [string]$description
+            
+            [string]$displayExtension
         )
 
         Begin{}
 
         Process
         {
-            $uri = "$uri/stems"
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/stems"
             $body = @{
                 WsRestStemSaveRequest = @{
-                    wsStemToSaves = @(@{wsStem = @{description = $description;displayExtension = $description;name = $stemName};wsStemLookup = @{stemName = $stemName}})
+                    wsStemToSaves = @(@{wsStem = 
+                                    @{  description = $description;
+                                        displayExtension = $displayExtension;
+                                        name = $stemName};
+                                    wsStemLookup = @{stemName = $stemName}})
                 }
             } | ConvertTo-Json -Depth 5
-            ($response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType)
+            #write-host "$uri"
+            #write-host "$body"
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             return ($response.Content | ConvertFrom-Json).WsStemSaveResults.results.wsStem
         }
 
@@ -1049,10 +1487,10 @@ function Set-GrouperPrivileges
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -1065,7 +1503,11 @@ function Set-GrouperPrivileges
 
         Process
         {
-            $uri = "$uri/groups"
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/groups"
             <# This didn't seem to work :()
                 foreach ($gn in $groupName)
                 {
@@ -1084,7 +1526,7 @@ function Set-GrouperPrivileges
                         wsGroupLookups = @(@{groupName = $gn})
                     }
                 } | ConvertTo-Json -Depth 5
-                $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+                $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
                 $deletedGroups = ($response.Content | ConvertFrom-Json).WsGroupDeleteResults.results.wsGroup
                 $deletedGroups
             }
@@ -1134,10 +1576,10 @@ function Set-GrouperPrivileges
         [CmdletBinding()]
         param
         (
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [string]$uri,
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
             [System.Collections.Hashtable]$header,
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
@@ -1175,17 +1617,599 @@ function Set-GrouperPrivileges
                 }
                 Start-Sleep -Seconds 1
             }
-            $uri = "$uri/stems"
+            if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+       
+        $uri = "$uri/stems"
             $body = @{
                 WsRestStemDeleteRequest = @{
                     wsStemLookups = @(@{stemName = $stemName})
                 }
             } | ConvertTo-Json -Depth 5
-            $response = Invoke-WebRequest -Uri $uri -Headers $header -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             $removedStems = ($response.Content | ConvertFrom-Json).WsStemDeleteResults.results.wsStem
             return $removedStems
         }
 
         End{}
     }
+#endregion
+
+#region Remove-GrouperStem
+function stemfromgroupname{
+    <#
+    .SYNOPSIS
+        Returns stem from group name or group object
+
+    .DESCRIPTION
+        Returns stem from group name or group object
+
+    .PARAMETER groupname
+        Full path groupname including stem
+
+    .PARAMETER group
+        group object with name of group
+
+    .NOTES
+        Author: Eric Wunderlin
+        LASTEDIT: 9/21/2022
+
+    .EXAMPLE
+        >stemfromgroupname -groupname "test:this:group"
+        test:this
+
+        >stemfromgroupname -group @{name="test:this:group"}
+        test:this
+    #>
+
+    param(
+        [Parameter(Mandatory,ParameterSetName='groupname')]
+        [string]$groupname,
+        [Parameter(Mandatory,ParameterSetName='group')]
+        [PSCustomObject]$group
+        )
+
+    if([string]::IsNullOrEmpty($groupname)){
+        $groupname = $group.name
+    }
+    $namearray = $groupname.split(":")
+    
+    #remove last item and re-join
+    return (($namearray[0..($namearray.length - 2)]) -join ":")
+    
+}
+#endregion
+
+
+#region Get-GrouperGroupAttributeAssignments
+    
+function get-grouperGroupAttributeAssignments
+{
+    <#
+        .SYNOPSIS
+            Get Grouper Attribute Assignments for Group(s)
+
+        .DESCRIPTION
+            Get Grouper Attribute Assignments for Group(s) using either group or attribute assignments
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+            
+            Pulls from auth file if loaded
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+            
+            Pulls from auth file if loaded
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            Get Attributes assigned to this group
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .PARAMETER AttributeAssignDefName
+            Use AttributeAssignDefName to get groups assigned to this attribute
+        
+        .PARAMETER rawoutput
+            Return rawoutput from grouper api. Bypasses converting output to object
+        
+        .PARAMETER inbody
+            Specify custom body for rest request
+
+        .NOTES
+            Author: Eric Wunderlin
+            LASTEDIT: 9/21/2022
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        [string]$groupName,
+
+        [string]$AttributeAssignDefName,
+        [string]$subjectId,
+        [switch]$rawoutput,
+        [Hashtable]$inbody
+        )
+
+    Begin
+    {    
+        if([string]::IsNullOrEmpty($uri)){
+            if([string]::IsNullOrEmpty($systemuri)){
+                write-host "no uri"
+                $uri = Read-Host -Prompt 'Specify URI'
+            }
+            else{
+                $uri = $systemuri
+            }   
+            
+        }
+     
+    }
+
+    Process
+    {
+        $uri = "$uri/attributeAssignments"
+        $body = @{}
+
+        write-verbose $uri
+        $body = @{
+            WsRestGetAttributeAssignmentsRequest=@{
+            #       wsAttributeDefNameName=$AttributeAssignDefName;
+                attributeAssignType="group";
+                includeAssignmentsOnAssignments="T"
+                #"actAsSubjectId":"GrouperSystem"
+                #wsOwnerStemLookups
+            }
+        }
+        
+        if($subjectId -ne ""){
+            write-verbose "adding specified actAsSubjectId"
+            $body.actAsSubjectId = $subjectId
+        }
+
+        if($null -ne $inbody){
+            write-verbose "running body from input"
+            $body = $inbody
+        }
+        elseif("" -ne $groupname){
+            write-verbose "running with groupname"
+            $body.WsRestGetAttributeAssignmentsRequest.wsOwnerGroupLookups = @(@{groupName = $groupname})
+
+        }
+        else{
+            Write-Verbose "running defaults"
+            $body.WsRestGetAttributeAssignmentsRequest.wsAttributeDefNameLookups=@(@{name=$AttributeAssignDefName;})
+        }
+
+        $body = $body | ConvertTo-Json -Depth 5
+        
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        
+        if($rawoutput){
+            return $response
+        }
+        else{
+            return ,($response.content | convertfrom-json).WsGetAttributeAssignmentsResults.wsAttributeAssigns
+        }
+    }
+
+    End{}
+}
+#endregion
+
+#region Get-GrouperattributeDefNames
+
+function Get-GrouperAttributeDefNames
+{
+    <#
+        .SYNOPSIS
+            Get Grouper Attribute Names
+
+        .DESCRIPTION
+            Get Grouper Attribute Names
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER scope
+            Scope to look for attribute definintions
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .NOTES
+            Author: Eric Wunderlin
+            LASTEDIT: 9/21/2022
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+        [string]$uri,
+
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        [Alias('stem')]
+        [string]$scope,
+
+        [string]$subjectId
+    )
+
+    Begin
+    {
+        
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        }
+        $uri = "$uri/attributeDefNames"
+        
+    }
+
+    Process
+    {
+        $body = @{}
+        #write-host $uri
+        <#
+        {
+            "WsRestFindAttributeDefNamesLiteRequest":{
+                "scope":"test:"
+            }
+        }#>
+        $body['WsRestFindAttributeDefNamesLiteRequest'] = @{scope = $scope}
+        
+        $body = $body | ConvertTo-Json -Depth 5
+        Write-Verbose -Message $body
+        
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        
+        if($rawoutput){
+            return $response
+        }
+        return ($response.Content | ConvertFrom-Json).WsFindAttributeDefNamesResults.attributeDefNameResults
+
+    }
+
+    End{}
+}
+#endregion
+
+
+#region Set-GrouperGroupAttributeAssignments
+
+function Set-GrouperGroupAttributeAssignments
+{
+    <#
+        .SYNOPSIS
+            Set Grouper Group attributes with values
+
+        .DESCRIPTION
+            Get Grouper Group attributes with values
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            Use this if you know the exact name
+
+        .PARAMETER stemName
+            Use this to get a list of groups in a specific stem.  Use Get-GrouperStem to find stem
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .NOTES
+            Author: Eric Wunderlin
+            LASTEDIT: 9/21/2022
+
+        .EXAMPLE
+    #>
+    
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        #[Parameter(Mandatory,ParameterSetName='groupName')]
+        [string]$groupName,
+
+        #[Parameter(ParameterSetName='groupName')]
+        [switch]$search,
+
+        #[Parameter(Mandatory,ParameterSetName='stemName')]
+        [string]$stemName,
+
+        #[string]$scope,
+
+        [string]$subjectId,
+        [switch]$ReplaceValue,
+        $value,
+        [string]$AttributeAssignDefName,
+        [switch]$rawoutput
+            
+    )
+
+    Begin
+    {
+        
+        if($replacevalue){
+            $replacevaluetxt="replace_values";
+        }
+        else{
+            #improve error handling when add value used with existing attributes?
+            $replacevaluetxt = "add_value";
+        }
+
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        
+        }
+        $uri = "$uri/attributeAssignments"
+        $body = @{}
+    }
+
+    Process
+    {
+        #swrite-host $uri
+            <#
+            "values":[
+    {
+    "valueSystem":"63"
+    }
+]             #>
+            $body['WsRestAssignAttributesRequest']=@{
+                values=@(
+                    @{valueSystem=$value};
+                    )
+                attributeAssignType="group";
+                wsAttributeDefNameLookups=@(
+                    @{
+                    name=$AttributeAssignDefName;
+                    uuid=""}
+                    );
+                    #attributeAssignValueOperation="add_value";
+                    attributeAssignValueOperation=$replacevaluetxt;
+                    wsOwnerGroupLookups=@(
+                        @{
+                            groupName=$groupName;
+                        };
+                        
+                    );
+                    attributeAssignOperation="assign_attr"
+
+                }
+            
+            
+            #$body['WsRestFindAttributeDefNamesLiteRequest'] = @{scope = $scope}
+            #if ($search){$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_APPROXIMATE'}}}
+            #else{$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'}}}
+            #else{$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'}}}
+        <#
+        if ([string]::IsNullOrEmpty($subjectId))
+        {
+            $body['WsRestAssignAttributesRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
+        }
+        #>
+        $body = $body | ConvertTo-Json -Depth 5
+        Write-Verbose -Message $body
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+     
+        if($rawoutput){
+            return $response
+        }
+        else{
+            $content = ($response.Content | ConvertFrom-Json)
+            if($content.WsAssignAttributesResults.resultMetadata.success -eq 'T'){
+                write-verbose "success"
+            }
+            else{
+                write-warning "error?"
+            }
+            return $content.WsAssignAttributesResults
+        }
+    }
+    End{}
+}
+
+    #$f= get-grouperattributeAssignments -rawout -groupname "app:csom_cloud_access:msba_6331:MSBA_6330_001_GROUP_4" -AttributeAssignDefName "app:csom_cloud_access:msba_6331:csom_ad_test" -value 123
+#endregion
+
+
+#region remove-GrouperGroupAttributeAssignments
+
+function remove-GrouperGroupAttributeAssignments
+{
+    <#
+        .SYNOPSIS
+            Set Grouper Group attributes with values
+
+        .DESCRIPTION
+            Get Grouper Group attributes with values
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            Use this if you know the exact name
+
+        .PARAMETER stemName
+            Use this to get a list of groups in a specific stem.  Use Get-GrouperStem to find stem
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .NOTES
+            Author: Eric Wunderlin
+            LASTEDIT: 9/21/2022
+
+        .EXAMPLE
+    #>
+    
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        #[Parameter(Mandatory,ParameterSetName='groupName')]
+        [string]$groupName,
+
+        #[Parameter(ParameterSetName='groupName')]
+        [switch]$search,
+
+        #[Parameter(Mandatory,ParameterSetName='stemName')]
+        [string]$stemName,
+
+        #[string]$scope,
+
+        [string]$subjectId,
+        [switch]$ReplaceValue,
+        $value,
+        [string]$AttributeAssignDefName,
+        [switch]$rawoutput
+            
+    )
+
+    Begin
+    {
+        
+        if($replacevalue){
+            $replacevaluetxt="replace_values";
+        }
+        else{
+            #improve error handling when add value used with existing attributes?
+            $replacevaluetxt = "add_value";
+        }
+
+        if([string]::IsNullOrEmpty($uri)){
+            $uri = $systemuri
+        
+        }
+        $uri = "$uri/attributeAssignments"
+        $body = @{}
+    }
+
+    Process
+    {
+        #swrite-host $uri
+            <#
+ {
+  "WsRestAttributeDefNameDeleteRequest":{
+    "actAsSubjectLookup":{
+      "subjectId":"GrouperSystem"
+    },
+    "wsAttributeDefNameLookups":[
+      {
+        "name":"test:testAttributeAssignDefNameToDeleteRest1_json"
+      },
+      {
+        "name":"test:testAttributeAssignDefNameToDeleteRest2_json"
+      }
+    ]
+  }
+}             #>
+
+
+$body['WsRestAssignAttributesRequest']=@{
+                attributeAssignType="group";
+                wsAttributeDefNameLookups=@(
+                    @{
+                    name=$AttributeAssignDefName;
+                    uuid=""}
+                    );
+                    #attributeAssignValueOperation="add_value";
+                    #attributeAssignValueOperation=$replacevaluetxt;
+                    wsOwnerGroupLookups=@(
+                        @{
+                            groupName=$groupName;
+                        };
+                        
+                    );
+                    attributeAssignOperation="remove_attr"
+
+                }
+            
+            
+            #$body['WsRestFindAttributeDefNamesLiteRequest'] = @{scope = $scope}
+            #if ($search){$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_APPROXIMATE'}}}
+            #else{$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'}}}
+            #else{$body['WsRestFindGroupsRequest'] = @{wsQueryFilter = @{groupName = $groupName;queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'}}}
+        <#
+        if ([string]::IsNullOrEmpty($subjectId))
+        {
+            $body['WsRestAssignAttributesRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
+        }
+        #>
+        $body = $body | ConvertTo-Json -Depth 5
+        Write-Verbose -Message $body
+        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+     
+        if($rawoutput){
+            return $response
+        }
+        else{
+            $content = ($response.Content | ConvertFrom-Json)
+            if($content.WsAssignAttributesResults.resultMetadata.success -eq 'T'){
+                write-verbose "success"
+            }
+            else{
+                write-warning "error?"
+            }
+            return $content.WsAssignAttributesResults
+        }
+    }
+    End{}
+}
+
+    #$f= get-grouperattributeAssignments -rawout -groupname "app:csom_cloud_access:msba_6331:MSBA_6330_001_GROUP_4" -AttributeAssignDefName "app:csom_cloud_access:msba_6331:csom_ad_test" -value 123
 #endregion
