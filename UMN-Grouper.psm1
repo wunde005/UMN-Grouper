@@ -18,10 +18,8 @@
 param(
     [parameter(Position=0,Mandatory=$false)][string]$auth_file
 )
-#$auth = @{}
+
 $systemuri = ""
-#$authload = "$PSScriptRoot\z_auth.ps1"
-#$authload = Get-ChildItem -Path $PSScriptRoot\private\z_auth.ps1 -ErrorAction SilentlyContinue
 
 $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue )
 write-verbose "Private files:$($Private.name)"
@@ -29,7 +27,6 @@ Foreach($import in @($Private + $public + $Public_gen))
     {
         Try
         {
-            #write-host """$($import.name)"" $($import -eq $null)"
             if($null -eq $import.fullname){
                 
             }
