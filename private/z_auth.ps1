@@ -1,3 +1,4 @@
+#function z_auth{
 param(
     [parameter(Position=0,Mandatory=$false)][string]$auth_file
 )
@@ -74,8 +75,8 @@ seturi -systemuri $systemuri
 #>
 
 #add secured ticket to auth object
-if($null -ne $auth.SecMediasiteApplicationTicketTxt -and $null -eq $auth.SecMediasiteApplicationTicket){
-  $auth | Add-Member -MemberType NoteProperty -name SecMediasiteApplicationTicket -Value ($auth.SecMediasiteApplicationTicketTxt | ConvertTo-SecureString) 
-}
+#if($null -ne $auth.SecMediasiteApplicationTicketTxt -and $null -eq $auth.SecMediasiteApplicationTicket){
+#  $auth | Add-Member -MemberType NoteProperty -name SecMediasiteApplicationTicket -Value ($auth.SecMediasiteApplicationTicketTxt | ConvertTo-SecureString) 
+#}
 
 

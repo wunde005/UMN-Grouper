@@ -18,21 +18,45 @@
 param(
     [parameter(Position=0,Mandatory=$false)][string]$auth_file
 )
-
+#$auth = @{}
 $systemuri = ""
 #$authload = "$PSScriptRoot\z_auth.ps1"
-$authload = Get-ChildItem -Path $PSScriptRoot\z_auth.ps1 -ErrorAction SilentlyContinue
+#$authload = Get-ChildItem -Path $PSScriptRoot\private\z_auth.ps1 -ErrorAction SilentlyContinue
 
-function seturi{
-    param(
-      [string]$systemuri
-    )
-    $script:systemuri = $systemUri
-  }
-  
+$Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue )
+write-verbose "Private files:$($Private.name)"
+Foreach($import in @($Private + $public + $Public_gen))
+    {
+        Try
+        {
+            #write-host """$($import.name)"" $($import -eq $null)"
+            if($null -eq $import.fullname){
+                
+            }
+
+            elseif($import.name -eq "z_auth.ps1"){
+                try{
+                    . $import.fullname $auth_file
+                }
+                catch{
+                    Write-Warning "Failed auth load"
+                    return
+                }
+            }
+            else{
+                . $import.fullname
+            }
+        }
+        Catch
+        {
+            Write-Error -Message "Failed to import function $($import.fullname): $_"
+        }
+    }
 
 if(-NOT [string]::IsNullOrEmpty($auth_file)){
-    .  $authload $auth_file
+   #z_auth $auth_file
+    # .  $authload $auth_file
+    #write-host "auth:$($auth | convertto-json -Depth 10)"
 }
 
 #region New-GrouperHeader
@@ -61,20 +85,11 @@ if(-NOT [string]::IsNullOrEmpty($auth_file)){
             [Parameter(Mandatory)]
             [System.Management.Automation.PSCredential]$psCreds
         )
-        $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($psCreds.UserName+':'+$psCreds.GetNetworkCredential().Password))
-        return (@{"Authorization" = "Basic $auth"})
+        $authstring = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($psCreds.UserName+':'+$psCreds.GetNetworkCredential().Password))
+        return (@{"Authorization" = "Basic $authstring"})
     }
 #endregion
 
-function rtnheader{
-    param([Hashtable]$header)
-    if([string]::IsNullOrEmpty($header)){
-        return New-GrouperHeader -psCreds $auth.pscred
-    }
-    else{
-        return $header
-    }
-}
 
 #region Get-GrouperGroup
 function Get-GrouperGroup
@@ -748,10 +763,11 @@ function Get-GrouperStemByUUID
 }
 #endregion
 
+<# Redundant use "get-groupergroup -stem stem"
 #region Get-GrouperGroupsByStem
 function Get-GrouperGroupsByStem
 {
-    <#
+    
         .SYNOPSIS
             Create new Group in Grouper
 
@@ -780,7 +796,7 @@ function Get-GrouperGroupsByStem
             LASTEDIT: 7/30/2018
 
         .EXAMPLE
-    #>
+    
     [CmdletBinding()]
     param
     (
@@ -825,8 +841,7 @@ function Get-GrouperGroupsByStem
          return $results}
 }
 #endregion
-
-#endregon
+#>
 
 #region New-GrouperGroup
     function New-GrouperGroup
