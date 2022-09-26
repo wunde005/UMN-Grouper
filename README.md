@@ -8,9 +8,9 @@ Added support for using authorization files instead of -header and -uri
  - Header/Uri now optional but should work as before when no auth file passed
  - Use tools\createcredentialfile.ps1 to generate xml file  
  - Pass xml file during load  > import-module .\UMN-Grouper  -ArgumentList <auth.xml> -force  
- - Added support for array inputs on New-GrouperGroupMember so one or many users can be added to a group
- - Added replaceallexisting switch to New-GrouperGroupMember which will replace all group members with the supplied ones
- - Added createParentStemsIfNotExist switch to New-GrouperGroup to tell grouper to auto create parent stems
+ Added support for array inputs on New-GrouperGroupMember so one or many users can be added to a group  
+ Added replaceallexisting switch to New-GrouperGroupMember which will replace all group members with the supplied ones  
+ Added createParentStemsIfNotExist switch to New-GrouperGroup to tell grouper to auto create parent stems  
 
 Added the following functions:
 | Function | Description |
