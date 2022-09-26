@@ -3,6 +3,27 @@ This Powershell module is a collection of function to interact with the Internet
 https://github.com/Internet2/grouper
 https://spaces.internet2.edu/display/Grouper/Grouper+Web+Services
 
+## Update '1.1.0'
+Added support for using authorization files instead of -header and -uri 
+   Use tools\createcredentialfile.ps1 to generate xml file
+   Pass xml file during load  > import-module .\UMN-Grouper  -ArgumentList <auth.xml> -force
+
+Added the following functions:
+   Get-GrouperGroupAttributeAssignments
+      Gets attributes assigned to a group
+
+   Get-GrouperAttributeDefNames
+      Gets Grouper Attribute Definition Names
+
+   Remove-GrouperGroupMember
+      Removes members from group
+
+   Remove-GrouperGroupAttributeAssignments
+      Remove attributes assigned to a group
+
+   Set-GrouperGroupAttributeAssignments
+      Assigns attributes to a group
+
 ## Update '1.0.12'
 Minor text change for New-Header to New-GrouperHeader as reference variable.
 
