@@ -5,8 +5,8 @@ https://spaces.internet2.edu/display/Grouper/Grouper+Web+Services
 
 ## Update '1.1.0'
 Added support for using authorization files instead of -header and -uri  
-   Use tools\createcredentialfile.ps1 to generate xml file  
-   Pass xml file during load  > import-module .\UMN-Grouper  -ArgumentList <auth.xml> -force  
+ - Use tools\createcredentialfile.ps1 to generate xml file  
+ - Pass xml file during load  > import-module .\UMN-Grouper  -ArgumentList <auth.xml> -force  
 
 Added the following functions:
 | Function | Description |
