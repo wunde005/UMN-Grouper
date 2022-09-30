@@ -143,6 +143,10 @@ function Get-GrouperGroup
         [Parameter(Mandatory,ParameterSetName='stemName')]
         [string]$stemName,
 
+        #FIND_BY_GROUP_UUID
+        [Parameter(Mandatory,ParameterSetName='uuid')]
+        [string]$uuid,
+
         [string]$subjectId,
         [switch]$rawoutput
     )
@@ -174,13 +178,24 @@ function Get-GrouperGroup
                 $body['WsRestFindGroupsRequest'] = @{
                     wsQueryFilter = @{
                             groupName = $groupName;
-                            queryFilterType = 'FIND_BY_GROUP_NAME_EXACT'
+                            queryFilterType = 'FIND_BY_GROUP_NAME_EXACT';
+                            #IgnoreCase = $false
                         };
                         
                     }
                 }
 
             }
+        elseif($uuid){
+            $body['WsRestFindGroupsRequest'] = @{
+                wsQueryFilter = @{
+                    groupUuid = $uuid;
+                    queryFilterType = 'FIND_BY_GROUP_UUID'
+                }
+            }
+
+        }
+
         else
         {
             $body['WsRestFindGroupsRequest'] = @{
@@ -1123,9 +1138,15 @@ function Get-GrouperGroupsByStem
             } | ConvertTo-Json -Depth 5
             Write-Verbose $body
             $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
-            
-	    return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
-        }
+            #trying to avoid json convert errors on invalid returns
+            if($response.content){
+	            return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
+            }
+            else{
+                write-host "invalid response content"
+                return $response
+            }
+            }
 
         End{}
     }
@@ -1371,9 +1392,10 @@ function Set-GrouperPrivileges
         }
 
         $body = $body | ConvertTo-Json -Depth 5
-        #Write-Debug $body
+        
         $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         return ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult.privilegeResults
+        #need to fix?
         if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
         {
             ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -1696,7 +1718,7 @@ function stemfromgroupname{
 
 #region Get-GrouperGroupAttributeAssignments
     
-function get-grouperGroupAttributeAssignments
+function Get-GrouperGroupAttributeAssignments
 {
     <#
         .SYNOPSIS
@@ -2067,7 +2089,7 @@ function Set-GrouperGroupAttributeAssignments
 
 #region remove-GrouperGroupAttributeAssignments
 
-function remove-GrouperGroupAttributeAssignments
+function Remove-GrouperGroupAttributeAssignments
 {
     <#
         .SYNOPSIS
