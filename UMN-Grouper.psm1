@@ -19,7 +19,7 @@ param(
     [parameter(Position=0,Mandatory=$false)][string]$auth_file
 )
 
-$systemuri = ""
+$auth.uri = ""
 
 $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue )
 write-verbose "Private files:$($Private.name)"
@@ -154,16 +154,14 @@ function Get-GrouperGroup
     Begin
     {
         
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-        $uri = "$uri/groups"
+        $luri = rtnuri -uri $uri -target "groups"
+
         $body = @{}
     }
 
     Process
     {
-        #write-host $uri
+
         if ($groupName)
         {
             if ($search){
@@ -212,7 +210,7 @@ function Get-GrouperGroup
         }
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         if($rawoutput){
             return $response
         }
@@ -274,10 +272,8 @@ function Get-GrouperGroup
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-                $uri = $systemuri
-            }
-            $uri = "$uri/groups"
+            $luri = rtnuri -uri $uri -target "groups"
+           
             $body = @{
                 WsRestGetMembersRequest = @{
                     subjectAttributeNames = @("description")
@@ -294,7 +290,7 @@ function Get-GrouperGroup
             }
             $body = $body | ConvertTo-Json -Depth 5
             Write-Verbose -Message $body
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             write-verbose (($response | convertfrom-json).WsGetMembersResults.results.wsSubjects | convertto-json)
             $rtnvalue = ($response.Content | ConvertFrom-Json).WsGetMembersResults.results.wsSubjects
             if($null -eq $rtnvalue){
@@ -377,11 +373,8 @@ function Get-GrouperGroupsForMember
 
     Process
     {
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/memberships"
+        $luri = rtnuri -uri $uri
+        $luri = "$luri/memberships"
         $body = @{
             WsRestGetMembershipsRequest = @{
                 fieldName = 'members'
@@ -406,7 +399,7 @@ function Get-GrouperGroupsForMember
         }
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         return ($response.Content | ConvertFrom-Json).WsGetMembershipsResults.wsGroups
     }
 
@@ -472,11 +465,7 @@ function Get-GrouperPrivileges
     Begin{}
     Process
     {
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/grouperPrivileges"
+        $luri = rtnuri -uri $uri -target "grouperPrivileges"
         $body = @{
             WsRestGetGrouperPrivilegesLiteRequest = @{}
         }
@@ -503,7 +492,7 @@ function Get-GrouperPrivileges
 
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         Write-Verbose ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult
         return ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult.privilegeResults
     }
@@ -570,11 +559,9 @@ function Get-GrouperPrivileges
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/stems"
+            $luri = rtnuri -uri $uri -target "stems"
+        
+
             $body = @{
                     WsRestFindStemsRequest = @{
                         wsStemQueryFilter = @{stemName = $stemName}
@@ -589,7 +576,7 @@ function Get-GrouperPrivileges
                 $body['WsRestFindStemsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
             }
             $body = $body | ConvertTo-Json -Depth 5
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
             {
                 ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -659,11 +646,8 @@ function Get-GrouperPrivileges
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
+            $luri = rtnuri -uri $uri -target "stems"
        
-        $uri = "$uri/stems"
             $body = @{
                     WsRestFindStemsRequest = @{
                         wsStemQueryFilter = @{parentStemName = $parentStemName;stemQueryFilterType = 'FIND_BY_PARENT_STEM_NAME'}
@@ -679,7 +663,7 @@ function Get-GrouperPrivileges
             }
             $body = $body | ConvertTo-Json -Depth 5
             Write-Verbose -Message $body
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
             {
                 ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -744,11 +728,8 @@ function Get-GrouperStemByUUID
 
     Process
     {
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
+        $luri = rtnuri -uri $uri -target "stems"
        
-        $uri = "$uri/stems"
         $body = @{
                 WsRestFindStemsRequest = @{
                     wsStemQueryFilter = @{stemUuid = $uuid;stemQueryFilterType = 'FIND_BY_STEM_UUID'}
@@ -761,7 +742,7 @@ function Get-GrouperStemByUUID
             $body['WsRestFindStemsRequest']['actAsSubjectLookup'] = @{subjectId = $subjectId};
         }
         $body = $body | ConvertTo-Json -Depth 5
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
         {
             ($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults
@@ -830,7 +811,7 @@ function Get-GrouperGroupsByStem
     Process
     {
         if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
+            $uri = $auth.uri
         }
        
         $uri = "$uri/groups"
@@ -918,11 +899,8 @@ function Get-GrouperGroupsByStem
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-            
-            }
-            $uri = "$uri/groups"
+            $luri = rtnuri -uri $uri -target "groups"
+
             if($bodyin){
                 $body = $bodyin 
             }
@@ -998,7 +976,7 @@ function Get-GrouperGroupsByStem
             #return $body
             try{
              #   write-host "Invoke-WebRequest -Uri $uri -Headers $((rtnheader $header)) -Method Post -Body $body -UseBasicParsing -ContentType $contentType"
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             }
             catch {
                 write-host "error"
@@ -1099,20 +1077,13 @@ function Get-GrouperGroupsByStem
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/groups"
-            if ($subjectIdentifier){
-		$subjectlookups = @()
-		foreach ($i in $subjectidentifier){
-			$subjectLookups += @{subjectIdentifier = $i}
-		}
-                
-            
-            }
-            
+        $luri = rtnuri -uri $uri -target "groups"
+        if ($subjectIdentifier){
+		    $subjectlookups = @()
+		    foreach ($i in $subjectidentifier){
+			    $subjectLookups += @{subjectIdentifier = $i}
+		    }    
+        }    
 	    else{
 		$subjectlookups = @()
 		foreach ($i in $subjectid){
@@ -1137,7 +1108,7 @@ function Get-GrouperGroupsByStem
                 }
             } | ConvertTo-Json -Depth 5
             Write-Verbose $body
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             #trying to avoid json convert errors on invalid returns
             if($response.content){
 	            return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
@@ -1219,11 +1190,7 @@ function Remove-GrouperGroupMember
 
     Process
     {
-        if([string]::IsNullOrEmpty($uri)){
-        $uri = $systemuri
-    }
-   
-    $uri = "$uri/groups"
+        $luri = rtnuri -uri $uri -target "groups"
         if ($subjectIdentifier){
     $subjectlookups = @()
     foreach ($i in $subjectidentifier){
@@ -1268,7 +1235,7 @@ function Remove-GrouperGroupMember
             }
         } | ConvertTo-Json -Depth 5
         Write-Verbose $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         
     return @(($response.Content | ConvertFrom-Json).WsAddMemberResults.results.wsSubject,($response.Content | ConvertFrom-Json).WsAddMemberResults.wsGroupAssigned)
     }
@@ -1355,11 +1322,7 @@ function Set-GrouperPrivileges
     Begin{}
     Process
     {
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/grouperPrivileges"
+        $luri = rtnuri -uri $uri -target "grouperPrivileges"
         $body = @{
             WsRestAssignGrouperPrivilegesLiteRequest = @{
                 allowed = $allowed
@@ -1393,7 +1356,7 @@ function Set-GrouperPrivileges
 
         $body = $body | ConvertTo-Json -Depth 5
         
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $iuri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         return ($response.Content | ConvertFrom-Json).WsGetGrouperPrivilegesLiteResult.privilegeResults
         #need to fix?
         if (($response.Content | ConvertFrom-Json).WsFindStemsResults.stemResults.count -gt 0)
@@ -1465,11 +1428,8 @@ function Set-GrouperPrivileges
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
+        $luri = rtnuri -uri $uri -target "stems"
        
-        $uri = "$uri/stems"
             $body = @{
                 WsRestStemSaveRequest = @{
                     wsStemToSaves = @(@{wsStem = 
@@ -1481,7 +1441,7 @@ function Set-GrouperPrivileges
             } | ConvertTo-Json -Depth 5
             #write-host "$uri"
             #write-host "$body"
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             return ($response.Content | ConvertFrom-Json).WsStemSaveResults.results.wsStem
         }
 
@@ -1537,11 +1497,7 @@ function Set-GrouperPrivileges
 
         Process
         {
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/groups"
+            $luri = rtnuri -uri $uri -target "groups"
             <# This didn't seem to work :()
                 foreach ($gn in $groupName)
                 {
@@ -1560,7 +1516,7 @@ function Set-GrouperPrivileges
                         wsGroupLookups = @(@{groupName = $gn})
                     }
                 } | ConvertTo-Json -Depth 5
-                $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+                $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
                 $deletedGroups = ($response.Content | ConvertFrom-Json).WsGroupDeleteResults.results.wsGroup
                 $deletedGroups
             }
@@ -1651,17 +1607,14 @@ function Set-GrouperPrivileges
                 }
                 Start-Sleep -Seconds 1
             }
-            if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-       
-        $uri = "$uri/stems"
+           $luri = rtnuri -uri $uri -target "stems"
+        
             $body = @{
                 WsRestStemDeleteRequest = @{
                     wsStemLookups = @(@{stemName = $stemName})
                 }
             } | ConvertTo-Json -Depth 5
-            $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+            $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             $removedStems = ($response.Content | ConvertFrom-Json).WsStemDeleteResults.results.wsStem
             return $removedStems
         }
@@ -1784,12 +1737,12 @@ function Get-GrouperGroupAttributeAssignments
     Begin
     {    
         if([string]::IsNullOrEmpty($uri)){
-            if([string]::IsNullOrEmpty($systemuri)){
+            if([string]::IsNullOrEmpty($auth.uri)){
                 write-host "no uri"
                 $uri = Read-Host -Prompt 'Specify URI'
             }
             else{
-                $uri = $systemuri
+                $uri = $auth.uri
             }   
             
         }
@@ -1798,7 +1751,7 @@ function Get-GrouperGroupAttributeAssignments
 
     Process
     {
-        $uri = "$uri/attributeAssignments"
+        $luri = rtnuri -uri $uri -target "attributeAssignments"
         $body = @{}
 
         write-verbose $uri
@@ -1833,7 +1786,7 @@ function Get-GrouperGroupAttributeAssignments
 
         $body = $body | ConvertTo-Json -Depth 5
         
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         
         if($rawoutput){
             return $response
@@ -1898,10 +1851,7 @@ function Get-GrouperAttributeDefNames
     Begin
     {
         
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        }
-        $uri = "$uri/attributeDefNames"
+        $luri = rtnuri -uri $uri -target "attributeDefNames"
         
     }
 
@@ -1920,7 +1870,7 @@ function Get-GrouperAttributeDefNames
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
         
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
         
         if($rawoutput){
             return $response
@@ -2012,11 +1962,7 @@ function Set-GrouperGroupAttributeAssignments
             $replacevaluetxt = "add_value";
         }
 
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        
-        }
-        $uri = "$uri/attributeAssignments"
+        $luri = rtnuri -uri $uri -target "attributeAssignments"
         $body = @{}
     }
 
@@ -2064,7 +2010,7 @@ function Set-GrouperGroupAttributeAssignments
         #>
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
      
         if($rawoutput){
             return $response
@@ -2139,16 +2085,16 @@ function Remove-GrouperGroupAttributeAssignments
         [string]$groupName,
 
         #[Parameter(ParameterSetName='groupName')]
-        [switch]$search,
+       # [switch]$search,
 
         #[Parameter(Mandatory,ParameterSetName='stemName')]
-        [string]$stemName,
+      #  [string]$stemName,
 
         #[string]$scope,
 
         [string]$subjectId,
-        [switch]$ReplaceValue,
-        $value,
+       # [switch]$ReplaceValue,
+       # $value,
         [string]$AttributeAssignDefName,
         [switch]$rawoutput
             
@@ -2157,19 +2103,8 @@ function Remove-GrouperGroupAttributeAssignments
     Begin
     {
         
-        if($replacevalue){
-            $replacevaluetxt="replace_values";
-        }
-        else{
-            #improve error handling when add value used with existing attributes?
-            $replacevaluetxt = "add_value";
-        }
 
-        if([string]::IsNullOrEmpty($uri)){
-            $uri = $systemuri
-        
-        }
-        $uri = "$uri/attributeAssignments"
+        $luri = rtnuri -uri $uri -target "attributeAssignments"
         $body = @{}
     }
 
@@ -2226,7 +2161,7 @@ $body['WsRestAssignAttributesRequest']=@{
         #>
         $body = $body | ConvertTo-Json -Depth 5
         Write-Verbose -Message $body
-        $response = Invoke-WebRequest -Uri $uri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
      
         if($rawoutput){
             return $response
