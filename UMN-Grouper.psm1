@@ -16,8 +16,22 @@
 #endregion
 
 param(
-    [parameter(Position=0,Mandatory=$false)][string]$auth_file
+    [parameter(Position=0,Mandatory=$false)]$modargument
+    #$auth_file
 )
+
+write-host "type:$($modargument.gettype())"
+$ptype=$modargument.gettype()
+if($ptype.name -eq "Hashtable"){
+    write-host "got hashtable"
+    $usehash = $true
+}
+elseif($ptype.name -eq "PSCustomObject" ){
+    $usepsobj = $true
+}
+elseif($ptype.name -eq "String"){
+    $auth_file = $modargument
+}
 
 $auth.uri = ""
 
@@ -33,7 +47,13 @@ Foreach($import in @($Private + $public + $Public_gen))
 
             elseif($import.name -eq "z_auth.ps1"){
                 try{
-                    . $import.fullname $auth_file
+                    write-host "load config:$usepsobj"
+                    if($usepsobj){
+                        . $import.fullname -auth_obj $modargument
+                    }
+                    else{
+                        . $import.fullname -auth_file $auth_file
+                    }
                 }
                 catch{
                     Write-Warning "Failed auth load"

@@ -1,10 +1,15 @@
 #function z_auth{
 param(
-    [parameter(Position=0,Mandatory=$false)][string]$auth_file
-)
+    [parameter(Mandatory=$false)][string]$auth_file,
+    [parameter(Mandatory=$false)][PSCustomObject]$auth_obj
+    )
 
 $auth = $null
-if([string]::IsNullOrWhiteSpace($auth_file)){
+
+if($null -ne $auth_obj){
+  $auth = $auth_obj
+}
+elseif([string]::IsNullOrWhiteSpace($auth_file)){
   write-warning "Auth file not submitted.  Use -uri and -header switches." #  Either re-import with the auth file specified or follow the prompts to create a new one."
   #write-host "Example import with auth file: import-module CanvasPS -ArgumentList .\tmp\auth.xml`n"
 }
