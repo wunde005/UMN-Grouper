@@ -20,7 +20,7 @@ param(
     #$auth_file
 )
 
-write-host "type:$($modargument.gettype())"
+write-verbose "type:$($modargument.gettype())"
 $ptype=$modargument.gettype()
 if($ptype.name -eq "Hashtable"){
     write-host "got hashtable"
@@ -33,7 +33,7 @@ elseif($ptype.name -eq "String"){
     $auth_file = $modargument
 }
 
-$auth.uri = ""
+#$auth.uri = ""
 
 $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue )
 write-verbose "Private files:$($Private.name)"
@@ -243,6 +243,104 @@ function Get-GrouperGroup
 }
 #endregion
 
+function Get-GrouperSubjects
+{
+    <#
+        .SYNOPSIS
+            Get Grouper Group(s)
+
+        .DESCRIPTION
+            Get Grouper Group(s)
+
+        .PARAMETER uri
+            Full path to Server plus path to API
+            Example "https://<FQDN>/grouper-ws/servicesRest/json/v2_2_100"
+
+        .PARAMETER header
+            Use New-GrouperHeader to get this
+
+        .PARAMETER contentType
+            Set Content Type, currently 'text/x-json;charset=UTF-8'
+
+        .PARAMETER groupName
+            Use this if you know the exact name
+
+        .PARAMETER stemName
+            Use this to get a list of groups in a specific stem.  Use Get-GrouperStem to find stem
+
+        .PARAMETER subjectId
+            Set this to a username to search as that user if you have access to
+
+        .NOTES
+            Author: Travis Sobeck
+            LASTEDIT: 7/30/2018
+
+        .EXAMPLE
+    #>
+    [CmdletBinding()]
+    param
+    (
+        #[Parameter(Mandatory)]
+        [string]$uri,
+
+        #[Parameter(Mandatory)]
+        [System.Collections.Hashtable]$header,
+
+        [string]$contentType = 'text/x-json;charset=UTF-8',
+
+        #[Parameter(Mandatory,ParameterSetName='groupName')]
+        #[string]$groupName,
+
+        #[Parameter(ParameterSetName='groupName')]
+        #[switch]$search,
+
+        #[Parameter(Mandatory,ParameterSetName='stemName')]
+        #[string]$stemName,
+
+        #FIND_BY_GROUP_UUID
+        #[Parameter(Mandatory,ParameterSetName='uuid')]
+        #[string]$uuid,
+
+        [string]$subject,
+        [switch]$rawoutput
+    )
+
+    Begin
+    {
+        
+        $luri = rtnuri -uri $uri -target "subjects"
+        $subjectSourceId = "umnldap"
+        $body = @{
+            WsRestGetSubjectsRequest = @{
+                wsSubjectLookups = @(@{subjectIdentifier = $subject;subjectSourceId = $subjectSourceId})
+            }
+        }
+        #$body = @{}
+    }
+
+    Process
+    {
+
+        if ($subject)
+        {
+         #   $luri = $luri + "/" + $subject
+        }    
+        $body = $body | ConvertTo-Json -Depth 5
+        Write-Verbose -Message $body
+        $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -body $body -Method POST -UseBasicParsing -ContentType $contentType
+        if($rawoutput){
+            return $response
+        }
+        else{
+            return ($response.Content | ConvertFrom-Json).WsFindGroupsResults.groupResults
+        }
+    }
+
+    End{}
+}
+#endregion
+
+
 #region Get-GrouperGroupMembers
     function Get-GrouperGroupMembers
     {
@@ -285,7 +383,8 @@ function Get-GrouperGroup
             [Parameter(Mandatory)]
             [string]$groupName,
 
-            [string]$subjectId
+            [string]$subjectId,
+            [switch]$rawoutput
         )
 
         Begin{}
@@ -311,12 +410,18 @@ function Get-GrouperGroup
             $body = $body | ConvertTo-Json -Depth 5
             Write-Verbose -Message $body
             $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader -header $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
-            write-verbose (($response | convertfrom-json).WsGetMembersResults.results.wsSubjects | convertto-json)
-            $rtnvalue = ($response.Content | ConvertFrom-Json).WsGetMembersResults.results.wsSubjects
-            if($null -eq $rtnvalue){
-                return ,@()
+            if($rawoutput){
+                return $response
             }
-            return $rtnvalue
+            else{
+                #write-verbose (($response | convertfrom-json).WsGetMembersResults.results.wsSubjects | convertto-json)
+            
+                $rtnvalue = ($response.Content | ConvertFrom-Json).WsGetMembersResults.results.wsSubjects
+                if($null -eq $rtnvalue){
+                    return ,@()
+                }
+                return $rtnvalue
+            }    
         }
 
         End{}
@@ -1080,19 +1185,24 @@ function Get-GrouperGroupsByStem
 
             [string]$contentType = 'text/x-json;charset=UTF-8',
 
-            [Parameter(Mandatory)]
+            #[Parameter(Mandatory)]
+            [Parameter(Mandatory,ParameterSetName='subjectIdentifiername')]
             [string]$groupName,
 
-            [Parameter(Mandatory,ParameterSetName='subjectId')]
+            [Parameter(Mandatory,ParameterSetName='subjectIduuid')]
+            [Parameter(Mandatory,ParameterSetName='subjectIdname')]
             [string[]]$subjectId,
 
-            [Parameter(Mandatory,ParameterSetName='subjectIdentifier')]
+            [Parameter(Mandatory,ParameterSetName='subjectIdentifieruuid')]
+            [Parameter(Mandatory,ParameterSetName='subjectIdentifiername')]
             [string[]]$subjectIdentifier,
 
             [string]$subjectSourceId,
+            [Parameter(Mandatory,ParameterSetName='subjectIdentifieruuid')]
+            [string]$groupUuid,
 	    [switch]$replaceallexisting=$false
         )
-
+ 
         Begin{}
 
         Process
@@ -1120,13 +1230,23 @@ function Get-GrouperGroupsByStem
             else{
 	    	$replaceallexistingtxt = "F"
             }
+            #Either uuid or groupname
+            if($groupUuid){
+                $wsGroupLookup = @{uuid = $groupuuid}
+            }
+            else{
+                $wsGroupLookup = @{groupName = $groupName}
+            }
             $body = @{
                 WsRestAddMemberRequest = @{
                     replaceAllExisting = "$replaceallexistingtxt"
                     subjectLookups = $subjectLookups
-                    wsGroupLookup = @{groupName = $groupName}
+                    wsGroupLookup = $wsGroupLookup
+                    
                 }
+            
             } | ConvertTo-Json -Depth 5
+               
             Write-Verbose $body
             $response = Invoke-WebRequest -Uri $luri -Headers (rtnheader $header) -Method Post -Body $body -UseBasicParsing -ContentType $contentType
             #trying to avoid json convert errors on invalid returns
