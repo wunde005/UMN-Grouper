@@ -1998,7 +1998,7 @@ function Get-GrouperAttributeDefNames
     Process
     {
         $body = @{}
-        #write-host $uri
+        write-host $luri
         <#
         {
             "WsRestFindAttributeDefNamesLiteRequest":{
